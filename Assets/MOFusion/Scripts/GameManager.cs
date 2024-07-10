@@ -3,51 +3,82 @@ using Fusion.Sockets;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
+using static UnityEditor.Experimental.GraphView.GraphView;
 
 namespace MOFusion
 {
-    public class GameManager : SimulationBehaviour, INetworkRunnerCallbacks
+    [RequireComponent(typeof(GameNetworkEvents))]
+    public class GameManager : Fusion.Behaviour
     {
-        public void OnSceneLoadDone(NetworkRunner runner) { }
+        public delegate void DelPlayerConnectedEvent(PlayerRef playerRef);
+        public delegate void DelPlayerDisconnectedEvent(PlayerRef playerRef, string playerId);
 
 
-        #region unused callbacks
-        public void OnConnectedToServer(NetworkRunner runner) { }
+        public event DelPlayerConnectedEvent OnPlayerConnected;
+        public event DelPlayerDisconnectedEvent OnPlayerDisconnected;
 
-        public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason) { }
+        public bool IsServer
+        {
+            get
+            {
+#if SERVER_MODE
+                return true;
+#endif
+                return runner == null ? false : runner.IsSharedModeMasterClient;
+            }
+        }
 
-        public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
+        [SerializeField, HideInInspector] private NetworkRunner runner;
+        [SerializeField, HideInInspector] private GameNetworkEvents gameNetworkEvents;
 
-        public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
+        private Dictionary<PlayerRef, string> players;
 
-        public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+        private void Reset()
+        {
+            runner = GetComponent<NetworkRunner>();
+            gameNetworkEvents = GetComponent<GameNetworkEvents>();
+        }
 
-        public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
+        private void Awake()
+        {
+            players = new Dictionary<PlayerRef, string>();
+            gameNetworkEvents.OnConnectedToServer += GameNetworkEvents_OnConnectedToServer;
+        }
 
-        public void OnInput(NetworkRunner runner, NetworkInput input) { }
+        private void GameNetworkEvents_OnConnectedToServer(NetworkRunner runner)
+        {
+            if(IsServer)
+            {
+                gameNetworkEvents.OnPlayerJoined += GameNetworkEvents_OnPlayerJoined;
+                gameNetworkEvents.OnPlayerLeft += GameNetworkEvents_OnPlayerLeft;
+            }
+        }               
 
-        public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
+        private void GameNetworkEvents_OnPlayerJoined(NetworkRunner runner, PlayerRef player)
+        {
+            if (runner.LocalPlayer == player)
+                return;
 
-        public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+            //check if player is acceptable
+            players[player] = runner.GetPlayerUserId(player);
+            OnPlayerConnected?.Invoke(player);
+        }
 
-        public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
+        private void GameNetworkEvents_OnPlayerLeft(NetworkRunner runner, PlayerRef player)
+        {
 
-        public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
+            if(players.Remove(player, out string playerId))
+            {
+                OnPlayerDisconnected?.Invoke(player, playerId);
+            }
+        }
 
-        public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
+        public string GetPlayerId(PlayerRef player)
+            => players.TryGetValue(player, out string playerId) ? playerId : null;
 
-        public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-
-        public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
-
-        public void OnSceneLoadStart(NetworkRunner runner) { }
-
-        public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
-
-        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
-
-        public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
-        #endregion
+        public bool TryGetPlayerId(PlayerRef player, out string playerId)
+            => players.TryGetValue(player, out playerId);
     }
 }
