@@ -29,7 +29,14 @@ namespace MOFusion
 
         private void GameManager_OnPlayerConnected(PlayerRef playerRef)
         {
-            RpcSpawnPlayerObject(playerRef, new byte[1]);
+            IPlayerObjectDataProvider dataProvider = GetComponent<IPlayerObjectDataProvider>();
+            dataProvider.ProvideData(playerRef, OnObjectDataProvided);
+            
+        }
+
+        private void OnObjectDataProvided(PlayerRef playerRef, uint[] data)
+        {
+            RpcSpawnPlayerObject(playerRef, data);
         }
 
         private void GameManager_OnPlayerDisconnected(PlayerRef playerRef, string playerId)
@@ -38,11 +45,10 @@ namespace MOFusion
         }
 
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-        private void RpcSpawnPlayerObject([RpcTarget] PlayerRef player, byte[] instantiationData)
+        private void RpcSpawnPlayerObject([RpcTarget] PlayerRef player, uint[] instantiationData)
         {
             Runner.Spawn(characterPrefab, onBeforeSpawned: (runner, no) =>
             {
-
                 no.GetBehaviour<PlayerObjectInfo>().SetInstantiationData(instantiationData);
             });
         }

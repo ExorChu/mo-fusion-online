@@ -8,15 +8,15 @@ namespace MOFusion
 {
     public class PlayerObjectInfo : MONetworkBehaviour
     {
-        public void SetInstantiationData(byte[] instantiationData)
+        public void SetInstantiationData(uint[] data)
         {
-            Debug.Log("Set instantiate data!");
+            var dataInstantiation = GetComponent<IPlayerObjectInstantiated>();
+            dataInstantiation.OnInstantiated(data);
         }
 
         protected override void OnSpawned()
         {
             Runner.SetPlayerObject(Object.StateAuthority, Object);
-            Debug.Log("A Player object has been spawned!");
         }
     }
 }
