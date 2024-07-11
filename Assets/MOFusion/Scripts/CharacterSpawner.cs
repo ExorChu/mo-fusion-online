@@ -40,13 +40,11 @@ namespace MOFusion
         [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
         private void RpcSpawnPlayerObject([RpcTarget] PlayerRef player, byte[] instantiationData)
         {
-            Debug.Log(characterPrefab == null);
-            Debug.Log(Runner == null);
-            //Runner.Spawn(characterPrefab, onBeforeSpawned: (runner, no) =>
-            //{
-                
-            //    no.GetBehaviour<PlayerObjectInfo>().SetInstantiationData(instantiationData);
-            //});
+            Runner.Spawn(characterPrefab, onBeforeSpawned: (runner, no) =>
+            {
+
+                no.GetBehaviour<PlayerObjectInfo>().SetInstantiationData(instantiationData);
+            });
         }
     }
 }
